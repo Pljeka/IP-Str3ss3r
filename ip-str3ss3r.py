@@ -386,7 +386,7 @@ def main_menu():
     ack = input(Fore.RED + "Do you acknowledge that you will only use this tool for ethical and authorized testing? (y/n): " + Style.RESET_ALL)
     if ack.lower() != 'y':
         print(Fore.RED + "Exiting. This tool must only be used ethically and with authorization." + Style.RESET_ALL)
-        sys.exit(0)
+        sys.exit(3)
     
     while True:
         os.system('cls' if os.name == 'nt' else 'clear')
@@ -561,7 +561,8 @@ For more information on ethical penetration testing, visit:
             
         elif choice == "7":
             print(Fore.GREEN + "\n[+] Exiting. Thank you for using IP-Str3ss3r ethically." + Style.RESET_ALL)
-            sys.exit(0)
+            time.sleep(1)
+            sys.exit(3)
             
         else:
             print(Fore.RED + "Invalid choice. Please try again." + Style.RESET_ALL)
@@ -602,7 +603,8 @@ if __name__ == "__main__":
             main_menu()
     except KeyboardInterrupt:
         print(Fore.YELLOW + "\n\n[!] Attack interrupted by user. Exiting..." + Style.RESET_ALL)
-        sys.exit(0)
+        time.sleep(1)
+        sys.exit(3)
     except Exception as e:
         print(Fore.RED + f"\n[!] An error occurred: {e}" + Style.RESET_ALL)
         sys.exit(1)
