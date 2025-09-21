@@ -51,8 +51,3 @@ The developer is **not responsible** for any misuse. Use responsibly and ethical
 
 
 
-
-
-
-
-TRANSFORM THIS TEXT IN THE TEXT I CAN PUT IN GIRHUB READ ME TO DISPLAY ALL THIS
