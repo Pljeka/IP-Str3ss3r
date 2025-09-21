@@ -392,7 +392,7 @@ def main_menu():
         os.system('cls' if os.name == 'nt' else 'clear')
         print(banner)
         print(Fore.CYAN + "===== MAIN MENU =====" + Style.RESET_ALL)
-        print(Fore.CYAN + "1. UDP Flood")
+        print("1. UDP Flood")
         print("2. TCP Flood")
         print("3. SYN Flood")
         print("4. HTTP Flood (GET/POST)")
